@@ -1,0 +1,11 @@
+{
+  "name": "my-react-blog-backend",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "@babel/node": "^7.14.9",
+    "@babel/preset-env": "^7.15.0",
+    "express": "^4.17.1"
+  }
+}
