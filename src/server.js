@@ -14,73 +14,77 @@ app.use(
   })
 );
 
-// get route
-// app.get("/hello", (req, res) => res.send("hello!"));
+// function to handle all repeated code
 
-// get by name
-// app.get("/hello/:name", (req, res) => res.send(`Hello ${req.params.name}`));
+const withDB = async (operations, res) => {
+  try {
+    const client = await MongoClient.connect("mongodb://localhost:27017");
+    const db = await client.db("myreactblogserver");
 
-// create post route
-// app.post("/hello", (req, res) => res.send(`Hello ${req.body.name}!`));
+    await operations(db);
 
-// app.get("/articles", async (req, res) => {
-//   const articleName = req.params.name;
+    client.close();
+  } catch (error) {
+    res.status(500).json({ message: "Error connecting to the database" });
+  }
+};
 
-//   const client = await MongoClient.connect("mongodb://localhost:27017", {
-//     useNewParser: true,
-//   });
-
-//   const db = await mongoClient.db("myreactblogbackend");
-//   const dataCollection = await db.collection("articles");
-
-//   const db = await client.db("myreactblogserver");
-
-//   const articleInfo = await db
-//     .getCollection("articles")
-//     .findOne({ name: articleName });
-
-//   res.status(200).json(articleInfo);
-
-//   // client.close();
-
-//   // res.status(500).json({ message: "error connecting to db", error });
-// });
 app.get("/articles/:name", async (req, res) => {
-  console.log("1");
-  const articleName = req.params.name;
+  withDB(async (db) => {
+    const articleName = req.params.name;
 
-  const client = await MongoClient.connect("mongodb://localhost:27017");
+    const dataCollection = await db.collection("articles");
 
-  const db = await client.db("myreactblogserver");
-  const dataCollection = await db.collection("articles");
-  console.log("1");
-  const articleInfo = await dataCollection.findOne({ name: articleName });
-  console.log("2");
-  res.status(200).json(articleInfo);
-  console.log("3");
-  // client.close();
+    const articleInfo = await dataCollection.findOne({ name: articleName });
+
+    res.status(200).json(articleInfo);
+  }, res);
 
   // res.status(500).json({ message: "error connecting to db", error });
 });
 
-// app.post("/api/articles/:name/upvote", (req, res) => {
-//   const articleName = req.params.name;
+app.post("/articles/:name/upvote", async (req, res) => {
+  withDB(async (db) => {
+    const articleName = req.params.name;
 
-//   articlesInfo[articleName].upvotes += 1;
-//   res
-//     .status(200)
-//     .send(
-//       `${articleName} now has ${articlesInfo[articleName].upvotes} upvotes!`
-//     );
-// });
+    const dataCollection = await db.collection("articles");
+    const articleInfo = await dataCollection.findOne({ name: articleName });
+    await dataCollection.updateOne(
+      { name: articleName },
+      {
+        $set: {
+          upvotes: articleInfo.upvotes + 1,
+        },
+      }
+    );
+    const updatedArticleInfo = await dataCollection.findOne({
+      name: articleName,
+    });
 
-// app.post("/api/articles/:name/add-comment", (req, res) => {
-//   const { username, text } = req.body;
-//   const articleName = req.params.name;
+    res.status(200).json(updatedArticleInfo);
+  }, res);
+});
 
-//   articlesInfo[articleName].comments.push({ username, text });
+app.post("/articles/:name/add-comment", async (req, res) => {
+  const { username, text } = req.body;
+  const articleName = req.params.name;
+  withDB(async (db) => {
+    const dataCollection = await db.collection("articles");
+    const articleInfo = await dataCollection.findOne({ name: articleName });
+    await dataCollection.updateOne(
+      { name: articleName },
+      {
+        $set: {
+          comments: articleInfo.comments.concat({ username, text }),
+        },
+      }
+    );
+    const updatedArticleInfo = await dataCollection.findOne({
+      name: articleName,
+    });
 
-//   res.status(200).send(articlesInfo[articleName]);
-// });
+    res.status(200).json(updatedArticleInfo);
+  }, res);
+});
 
 app.listen(8000, () => console.log("listening on port 8000"));
